@@ -136,5 +136,15 @@ namespace GJ.UnityToolbox
 
             return gameObject.name;
         }
+
+        public static bool IsPrefabInScene(GameObject gameObject)
+        {
+            // Reference: https://stackoverflow.com/questions/56155148/how-to-avoid-the-onvalidate-method-from-being-called-in-prefab-mode
+
+            // Debug.Log($"Checking if {gameObject.name} is in scene... ScenePath: {gameObject.scene.path}, SceneName: {gameObject.scene.name}");
+
+            bool isNotInScene = string.IsNullOrEmpty(gameObject.scene.path) && string.IsNullOrEmpty(gameObject.scene.name);
+            return !isNotInScene;
+        }
     }
 }
