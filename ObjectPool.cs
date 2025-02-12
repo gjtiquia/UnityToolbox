@@ -13,12 +13,8 @@ namespace GJ.UnityToolbox
             get
             {
                 if (_instance == null)
-                {
-                    // Create a new GameObject to hold the singleton instance
-                    GameObject singletonObject = new GameObject(typeof(ObjectPool).Name);
-                    _instance = singletonObject.AddComponent<ObjectPool>();
-                    DontDestroyOnLoad(singletonObject);
-                }
+                    Debug.LogError("ObjectPool not found! Please add the ObjectPool prefab to the scene.");
+
                 return _instance;
             }
         }
@@ -35,10 +31,11 @@ namespace GJ.UnityToolbox
             // Ensure that there is only one instance of the ObjectPool
             if (_instance != null && _instance != this)
             {
-                Destroy(gameObject);
+                Destroy(this.gameObject);
                 return;
             }
             _instance = this;
+            DontDestroyOnLoad(this.gameObject);
         }
 
         private void Start()
