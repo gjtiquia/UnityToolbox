@@ -5,15 +5,42 @@ using UnityEngine.SceneManagement;
 
 namespace GJ.UnityToolbox
 {
-    // Referenced from Fusion BR200 ObjectCache
-    public class ObjectCache : MonoBehaviour
+    // Referenced from Photon Fusion BR200 ObjectCache
+    public class ObjectPool : MonoBehaviour
     {
+        public static ObjectPool Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    // Create a new GameObject to hold the singleton instance
+                    GameObject singletonObject = new GameObject(typeof(ObjectPool).Name);
+                    _instance = singletonObject.AddComponent<ObjectPool>();
+                    DontDestroyOnLoad(singletonObject);
+                }
+                return _instance;
+            }
+        }
+        private static ObjectPool _instance;
+
         // PRIVATE MEMBERS
         private Transform _defaultParentTransform;
         private Dictionary<GameObject, Transform> _poolParentTransformDict;
         private Dictionary<int, Transform> _returnParentTransformDict;
 
         // MonoBehaviour INTERFACE
+        private void Awake()
+        {
+            // Ensure that there is only one instance of the ObjectPool
+            if (_instance != null && _instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            _instance = this;
+        }
+
         private void Start()
         {
             GameObject defaultParentGO = new GameObject("Active Pooled Objects");
@@ -232,6 +259,4 @@ namespace GJ.UnityToolbox
             }
         }
     }
-
-
 }
