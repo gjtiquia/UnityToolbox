@@ -13,3 +13,7 @@ shadcn/ui style usage.
 No package manager no versioning.
 
 Just plain old copy and paste.
+
+## License
+
+MIT
