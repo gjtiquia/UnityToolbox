@@ -27,14 +27,29 @@ namespace GJ.UnityToolbox
 
         public static void WarnIfNull<T>(GameObject contextGameObject, T property) where T : class
         {
-            if (property == null)
+            if (IsNull(property))
                 Warn(contextGameObject, $"The property of type {typeof(T)} is null!");
         }
 
         public static void WarnIfNull<T>(string prefix, T property) where T : class
         {
-            if (property == null)
+            if (IsNull(property))
                 Warn(prefix, $"The property of type {typeof(T)} is null!");
+        }
+
+        public static bool IsNull<T>(T property) where T : class
+        {
+            try
+            {
+                // because (property == null || property is null) is not enough in Unity context
+                Assert.IsNotNull(property);
+            }
+            catch (AssertionException)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         public static void WarnIfTrue(GameObject contextGameObject, bool condition)
