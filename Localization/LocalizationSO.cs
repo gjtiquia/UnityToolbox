@@ -46,14 +46,11 @@ namespace GJ.UnityToolbox.Localization
 
 #if UNITY_EDITOR
         [SerializeField] private DefaultAsset _assetFolder;
-        [SerializeField] private string _csvFileName;
+        [SerializeField] private string _fileName;
         [SerializeField] private bool _isSecondColumnComments = true;
 
-        /// <summary>
-        /// Note: a known limitation is the translations cannot have commas. If so, perhaps consider using TSVs instead (tab-separated values).
-        /// </summary>
         [Button]
-        private void ImportFromCSV()
+        private void ImportFromFile()
         {
             var currentDirectory = Directory.GetCurrentDirectory();
             // Debug.Log("currentDirectory: " + currentDirectory);
@@ -62,57 +59,152 @@ namespace GJ.UnityToolbox.Localization
             // Debug.Log("assetFolder: " + assetFolder);
 
             var absoluteDirectory = Path.Combine(currentDirectory, assetFolder);
-            var absolutePath = Path.Combine(absoluteDirectory, _csvFileName);
+            var absolutePath = Path.Combine(absoluteDirectory, _fileName);
             // Debug.Log("absolutePath: " + absolutePath);
 
             _localizedStrings.Clear();
 
-            using (var reader = new StreamReader(absolutePath))
+            List<List<string>> parsedData = ParseCSVFile(absolutePath, ',');
+
+            // Skip the header row
+            for (int rowIndex = 1; rowIndex < parsedData.Count; rowIndex++)
             {
-                while (!reader.EndOfStream)
+                var values = parsedData[rowIndex];
+
+                var key = values[0];
+                if (key == "") continue; // Skip empty rows
+
+                var translations = new List<TranslationEntry>();
+                for (int i = 0; i < (int)ELanguage.COUNT; i++)
                 {
-                    var line = reader.ReadLine();
-                    var values = line.Split(',');
-
-                    var key = values[0];
-                    if (key == "Key") continue; // Skip first row
-                    if (key == "") continue; // Skip empty rows
-
-                    Debug.Log("line: " + line);
-                    Debug.Log("Key: " + key);
+                    var index = i + 1;
 
                     // Optional comments are in the second column of the csv file
-                    if (_isSecondColumnComments)
-                        Debug.Log("Comments: " + key[1]);
+                    if (_isSecondColumnComments) index++;
 
-                    var translations = new List<TranslationEntry>();
-                    for (int i = 0; i < (int)ELanguage.COUNT; i++)
+                    // Make sure we don't go out of bounds
+                    if (index >= values.Count)
                     {
-                        var index = i + 1;
-                        if (_isSecondColumnComments) index++;
-
-                        var language = (ELanguage)i;
-                        var value = values[index];
-
-                        Debug.Log($"language: {language}, value: {value}");
-
-                        translations.Add(new TranslationEntry()
-                        {
-                            Language = language,
-                            Value = value
-                        });
+                        Debug.LogError($"Missing translation for key '{key}', language {(ELanguage)i}");
+                        continue;
                     }
 
-                    _localizedStrings.Add(new LocalizedString()
+                    var language = (ELanguage)i;
+                    var value = values[index];
+
+                    Debug.Log($"key: {key}, language: {language}, value: {value}");
+
+                    translations.Add(new TranslationEntry()
                     {
-                        Key = key,
-                        Translations = translations,
+                        Language = language,
+                        Value = value
                     });
                 }
+
+                _localizedStrings.Add(new LocalizedString()
+                {
+                    Key = key,
+                    Translations = translations,
+                });
             }
 
             Debug.Log("SetDirty");
             EditorUtility.SetDirty(this);
+        }
+
+        private List<List<string>> ParseCSVFile(string filePath, char delimiter)
+        {
+            List<List<string>> result = new List<List<string>>();
+
+            using (StreamReader reader = new StreamReader(filePath))
+            {
+                string pendingField = "";
+                bool insideQuotes = false;
+                List<string> currentLine = new List<string>();
+
+                // Read entire file content
+                string fileContent = reader.ReadToEnd();
+                int index = 0;
+
+                while (index < fileContent.Length)
+                {
+                    char c = fileContent[index];
+
+                    // Check for quotes (handles escaping)
+                    if (c == '"')
+                    {
+                        // Check if it's an escaped quote
+                        if (index + 1 < fileContent.Length && fileContent[index + 1] == '"')
+                        {
+                            pendingField += '"';
+                            index += 2; // Skip both quotes
+                            continue;
+                        }
+
+                        // Toggle quote state
+                        insideQuotes = !insideQuotes;
+                        index++;
+                        continue;
+                    }
+
+                    // Process delimiter (only if not inside quotes)
+                    if (c == delimiter && !insideQuotes)
+                    {
+                        currentLine.Add(pendingField);
+                        pendingField = "";
+                        index++;
+                        continue;
+                    }
+
+                    // Process newline (only if not inside quotes)
+                    if ((c == '\n' || (c == '\r' && index + 1 < fileContent.Length && fileContent[index + 1] == '\n')) && !insideQuotes)
+                    {
+                        currentLine.Add(pendingField);
+                        result.Add(new List<string>(currentLine));
+
+                        // Reset for next line
+                        currentLine.Clear();
+                        pendingField = "";
+
+                        // Skip the newline character(s)
+                        if (c == '\r')
+                            index += 2; // Skip \r\n
+                        else
+                            index++; // Skip \n
+
+                        continue;
+                    }
+
+                    // Handle newlines inside quotes (preserve them)
+                    if ((c == '\n' || c == '\r') && insideQuotes)
+                    {
+                        if (c == '\r' && index + 1 < fileContent.Length && fileContent[index + 1] == '\n')
+                        {
+                            pendingField += '\n';
+                            index += 2; // Skip \r\n
+                        }
+                        else
+                        {
+                            pendingField += '\n';
+                            index++; // Skip \n or \r
+                        }
+                        continue;
+                    }
+
+                    // Add character to pending field
+                    pendingField += c;
+                    index++;
+                }
+
+                // Handle last field if exists
+                if (!string.IsNullOrEmpty(pendingField) || currentLine.Count > 0)
+                {
+                    currentLine.Add(pendingField);
+                    result.Add(currentLine);
+                }
+            }
+
+            return result;
         }
 #endif
 
@@ -127,7 +219,7 @@ namespace GJ.UnityToolbox.Localization
         private class TranslationEntry
         {
             public ELanguage Language;
-            public string Value;
+            [TextArea] public string Value;
         }
     }
 }
